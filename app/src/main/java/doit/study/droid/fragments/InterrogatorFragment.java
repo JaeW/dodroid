@@ -64,7 +64,6 @@ public class InterrogatorFragment extends LifecycleLogFragment implements View.O
     private Vote mVote = Vote.NONE;
     private Question mCurrentQuestion;
     private Sound mSound;
-    private boolean mIsSoundOn;
 
     private String[] mFeedbackWrongAnswered;
     private String[] mFeedbackRightAnswered;
@@ -81,7 +80,7 @@ public class InterrogatorFragment extends LifecycleLogFragment implements View.O
     public interface OnFragmentActivityChatter {
         void swipeToNext(int delay);
         void saveStat(Question question);
-        void updateProgress();
+        void updateProgress(boolean isRight);
     }
 
     public static InterrogatorFragment newInstance(Question question) {
@@ -103,11 +102,11 @@ public class InterrogatorFragment extends LifecycleLogFragment implements View.O
     @Override
     public boolean onOptionsItemSelected(MenuItem menuItem){
         switch(menuItem.getItemId()){
-            case(R.id.doc_reference):{
+            case R.id.doc_reference: {
                 openDocumentation();
                 return true;
             }
-            case(R.id.action_settings):{
+            case R.id.action_settings: {
                 startActivity(new Intent(getContext(), SettingsActivity.class));
                 return true;
             }
@@ -133,6 +132,7 @@ public class InterrogatorFragment extends LifecycleLogFragment implements View.O
         try {
             mOnFragmentActivityChatter = (OnFragmentActivityChatter) activity;
         } catch (ClassCastException e) {
+            Timber.e(e, null);
             throw new ClassCastException(activity.toString()
                     + " must implement OnFragmentActivityChatter");
         }
@@ -144,7 +144,7 @@ public class InterrogatorFragment extends LifecycleLogFragment implements View.O
         setHasOptionsMenu(true);
         mFeedbackRightAnswered = getResources().getStringArray(R.array.feedback_right_answer);
         mFeedbackWrongAnswered = getResources().getStringArray(R.array.feedback_wrong_answer);
-        mSound = Sound.newInstance(getContext());
+        mSound = Sound.getInstance(getContext());
         if (savedInstanceState != null) {
             mState = (State) savedInstanceState.getSerializable(QUESTION_STATE_KEY);
             mVote = (Vote) savedInstanceState.getSerializable(VOTE_STATE_KEY);
@@ -205,7 +205,7 @@ public class InterrogatorFragment extends LifecycleLogFragment implements View.O
     }
 
     private void updateAnswers(Bundle savedInstanceState){
-        boolean isDisabled = (mState == State.ANSWERED_RIGHT || mState == State.ANSWERED_WRONG);
+        boolean isDisabled = mState == State.ANSWERED_RIGHT || mState == State.ANSWERED_WRONG;
 
         if (isDisabled && mvAnswersLayout.getChildCount()!=0) {
             for(CheckBox c: mvCheckBoxes)
@@ -275,11 +275,13 @@ public class InterrogatorFragment extends LifecycleLogFragment implements View.O
     private void updateModel(){
         if (mState == State.ANSWERED_RIGHT) {
             mCurrentQuestion.incRightCounter();
-            mOnFragmentActivityChatter.updateProgress();
+            mOnFragmentActivityChatter.updateProgress(true);
         }
         else {
-            if (mCurrentQuestion.incWrongCounter() >= ATTEMPTS_LIMIT)
+            if (mCurrentQuestion.incWrongCounter() >= ATTEMPTS_LIMIT) {
                 mState = State.ANSWERED_WRONG;
+                mOnFragmentActivityChatter.updateProgress(false);
+            }
         }
     }
 
@@ -311,25 +313,21 @@ public class InterrogatorFragment extends LifecycleLogFragment implements View.O
         super.onSaveInstanceState(outState);
     }
 
-    @Override
-    public void onStart() {
-        super.onStart();
-        SharedPreferences SP = PreferenceManager.getDefaultSharedPreferences(getContext());
-        mIsSoundOn = SP.getBoolean(getString(R.string.pref_sound), true);
-    }
 
     @Override
     public void onClick(View v) {
         if (DEBUG) Timber.d(String.valueOf(v.getId()));
         switch (v.getId()) {
-            case (R.id.commit_button):
+            case R.id.commit_button:
                 handleCommitButton();
                 break;
-            case (R.id.thump_up_button):
+            case R.id.thump_up_button:
                 handleThumpUpButton();
                 break;
-            case (R.id.thump_down_button):
+            case R.id.thump_down_button:
                 handleThumpDownButton();
+                break;
+            default:
                 break;
         }
     }
@@ -397,8 +395,7 @@ public class InterrogatorFragment extends LifecycleLogFragment implements View.O
         showDocumentationSnackBar();
         updateModel();
         updateViews(null);
-        if (mIsSoundOn)
-            mSound.play(mState == State.ANSWERED_RIGHT);
+        mSound.play(mState == State.ANSWERED_RIGHT);
         if (mState == State.ANSWERED_RIGHT) {
             mOnFragmentActivityChatter.swipeToNext(SWIPE_DELAY);
         }

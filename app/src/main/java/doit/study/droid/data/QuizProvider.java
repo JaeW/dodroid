@@ -93,11 +93,11 @@ public class QuizProvider extends ContentProvider {
     @Override
     public String getType(Uri uri) {
         switch (sUriMatcher.match(uri)) {
-            case (RAND_QUESTION_DIR):
+            case RAND_QUESTION_DIR:
                 return QUESTION_TYPE;
             case QUESTION_DIR:
                 return QUESTION_TYPE;
-            case (TAG_DIR):
+            case TAG_DIR:
                 return TAG_TYPE;
             default:
                 throw new UnsupportedOperationException("Unknown uri: " + uri);
@@ -110,15 +110,15 @@ public class QuizProvider extends ContentProvider {
         if (DEBUG) Timber.d("query db: %s %s %s", uri, projection, selectionArgs);
         Cursor cursor;
         switch (sUriMatcher.match(uri)) {
-            case (RAND_QUESTION_DIR): {
+            case RAND_QUESTION_DIR: {
                 cursor = getRandSelectedQuestions(uri, projection);
                 break;
             }
-            case (TAG_DIR): {
+            case TAG_DIR: {
                 cursor = getTags();
                 break;
             }
-            case (QUESTION_DIR): {
+            case QUESTION_DIR: {
                 cursor = getQuestions(uri, projection);
                 break;
             }
@@ -152,6 +152,9 @@ public class QuizProvider extends ContentProvider {
                 tableName = Question.Table.NAME;
                 break;
             }
+            default: {
+                break;
+            }
         }
         if (mod != 0) {
             if (DEBUG) Timber.d("update db: %s %s %s", tableName, values, selection);
@@ -183,7 +186,7 @@ public class QuizProvider extends ContentProvider {
         // authority/tag/
         SQLiteDatabase db = mQuizDBHelper.getWritableDatabase();
         String tagTotalCounter = "COUNT(" + Tag.Table.FQ_TEXT + ") as " + Tag.Table.TOTAL_COUNTER;
-        String tagStudiedCounter = "SUM(" + Question.Table.FQ_STATUS + "=" + Tag.Table.QTY_WHEN_STUDIED + ") as " +
+        String tagStudiedCounter = "SUM(" + Question.Table.FQ_CONSECUTIVE_RIGHT_ANS_CNT + ">=" + Question.NUM_TO_CONSIDER_STUDIED + ") as " +
                 Tag.Table.STUDIED_COUNTER;
         String[] projection = {Tag.Table.FQ_ID, Tag.Table.FQ_TEXT, tagTotalCounter, tagStudiedCounter, Tag.Table.FQ_SELECTION};
         return sQuizQueryBuilder.query(db, projection, null, null, Tag.Table.FQ_TEXT, null, null);
